@@ -2,12 +2,27 @@
 
 #include <Mesh.h>
 
+#ifndef ESPNOW_BRIDGE_SECRET
+#define ESPNOW_BRIDGE_SECRET "LVSITANOS"
+#endif
+
 class ESPNOWRadio : public mesh::Radio {
 protected:
   uint32_t n_recv, n_sent, n_recv_errors;
+  const char* _bridge_secret;
+
+  static constexpr uint16_t BRIDGE_PACKET_MAGIC = 0xC03E;
+  static constexpr uint16_t BRIDGE_MAGIC_SIZE = 2;
+  static constexpr uint16_t BRIDGE_CHECKSUM_SIZE = 2;
+  static constexpr size_t MAX_ESPNOW_PACKET_SIZE = 250;
+  static constexpr size_t MAX_PAYLOAD_SIZE = MAX_ESPNOW_PACKET_SIZE - (BRIDGE_MAGIC_SIZE + BRIDGE_CHECKSUM_SIZE);
+
+  void xorCrypt(uint8_t* data, size_t len);
+  static uint16_t fletcher16(const uint8_t* data, size_t len);
+  bool validateChecksum(const uint8_t* data, size_t len, uint16_t received_checksum);
 
 public:
-  ESPNOWRadio() { n_recv = n_sent = n_recv_errors = 0; }
+  ESPNOWRadio() : n_recv(0), n_sent(0), n_recv_errors(0), _bridge_secret(ESPNOW_BRIDGE_SECRET) {}
 
   void init();
   int recvRaw(uint8_t* bytes, int sz) override;
