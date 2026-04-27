@@ -26,6 +26,14 @@ jobs:
           FIRMWARE_VERSION: ${{ env.GIT_TAG_VERSION }}
         run: /usr/bin/env bash build.sh build-room-server-firmwares
 
+      - name: Build Debug Firmwares
+        env:
+          FIRMWARE_VERSION: ${{ env.GIT_TAG_VERSION }}
+          PLATFORMIO_BUILD_FLAGS: -DMESH_PACKET_LOGGING=1
+          FIRMWARE_LABEL: debug-
+          SKIP_CLEAN: "1"
+        run: /usr/bin/env bash build.sh build-room-server-firmwares
+
       - name: Upload Workflow Artifacts
         uses: actions/upload-artifact@v7
         with:

@@ -138,7 +138,7 @@ build_firmware() {
 
   # craft filename
   # e.g: RAK_4631_Repeater-v1.0.0-SHA
-  FIRMWARE_FILENAME="$1-${FIRMWARE_VERSION_STRING}"
+  FIRMWARE_FILENAME="$1-${FIRMWARE_LABEL}${FIRMWARE_VERSION_STRING}"
 
   # add firmware version info to end of existing platformio build flags in environment vars
   export PLATFORMIO_BUILD_FLAGS="${PLATFORMIO_BUILD_FLAGS} -DFIRMWARE_BUILD_DATE='\"${FIRMWARE_BUILD_DATE}\"' -DFIRMWARE_VERSION='\"${FIRMWARE_VERSION_STRING}\"'"
@@ -246,7 +246,9 @@ build_firmwares() {
 }
 
 # clean build dir
-rm -rf out
+if [ "${SKIP_CLEAN}" != "1" ]; then
+  rm -rf out
+fi
 mkdir -p out
 
 # handle script args
