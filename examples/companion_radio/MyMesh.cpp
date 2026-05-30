@@ -974,7 +974,7 @@ struct FreqRange {
 
 static FreqRange repeat_freq_ranges[] = {
   { 433000, 433000 },
-  { 869000, 869000 },
+  { 869495, 869495 },
   { 918000, 918000 }
 };
 
