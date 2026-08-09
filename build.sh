@@ -206,8 +206,8 @@ build_repeater_firmwares() {
 #  build_firmware "LilyGo_T3S3_sx1262_Repeater"
 #  build_firmware "RAK_4631_Repeater"
 
-  # build all repeater firmwares
-  build_all_firmwares_by_suffix "_repeater"
+  # build all repeater firmwares (contains-match so that "*_repeater_bridge_*" variants are included too)
+  build_all_firmwares_matching "repeater"
 
 }
 
@@ -284,7 +284,7 @@ elif [[ $1 == "get-companion-firmwares-to-build" ]]; then
   get_pio_envs_ending_with_string "_companion_radio_usb"
   get_pio_envs_ending_with_string "_companion_radio_ble"
 elif [[ $1 == "get-repeater-firmwares-to-build" ]]; then
-  get_pio_envs_ending_with_string "_repeater"
+  get_pio_envs_containing_string "repeater"
 elif [[ $1 == "get-room-server-firmwares-to-build" ]]; then
   get_pio_envs_ending_with_string "_room_server"
 fi
