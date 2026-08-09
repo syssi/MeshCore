@@ -100,23 +100,29 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # Upload one asset at a time, paced ~1/s, to stay under GitHub's
-          # secondary rate limit (~80 content-mutating requests/minute) --
-          # with this many boards/targets, uploading all assets at once
-          # reliably trips it.
           set -e
-          for f in out/*; do
+          BATCH_SIZE=25
+          files=(out/*)
+          total=${#files[@]}
+          batches=$(( (total + BATCH_SIZE - 1) / BATCH_SIZE ))
+          uploaded=0
+          for ((i=0; i<total; i+=BATCH_SIZE)); do
+            batch=("${files[@]:i:BATCH_SIZE}")
+            batch_num=$(( i / BATCH_SIZE + 1 ))
+            echo "Batch $batch_num/$batches: uploading ${#batch[@]} files ($uploaded/$total done so far)..."
             for attempt in 1 2 3 4 5 6; do
-              if gh release upload "${{ github.ref_name }}" "$f" --clobber; then
+              if gh release upload "${{ github.ref_name }}" "${batch[@]}" --clobber; then
                 break
               fi
               if [ "$attempt" -eq 6 ]; then
-                echo "Giving up on $f after $attempt attempts"
+                echo "Giving up on batch $batch_num after $attempt attempts"
                 exit 1
               fi
               delay=$((15 * 2 ** (attempt - 1)))
-              echo "Upload of $f failed (attempt $attempt), retrying in ${delay}s..."
+              echo "Batch $batch_num upload failed (attempt $attempt), retrying in ${delay}s..."
               sleep "$delay"
             done
+            uploaded=$((uploaded + ${#batch[@]}))
+            echo "Batch $batch_num/$batches done ($uploaded/$total files uploaded)."
             sleep 1
           done
