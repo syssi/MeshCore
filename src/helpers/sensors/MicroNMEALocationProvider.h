@@ -50,6 +50,7 @@ class MicroNMEALocationProvider : public LocationProvider {
     long time_valid = 0;
     unsigned long _last_time_sync = 0;
     static const unsigned long TIME_SYNC_INTERVAL = 1800000; // Re-sync every 30 minutes
+    static const uint32_t MIN_VALID_TIME = 978307200; // 2001-01-01T00:00:00Z, excludes GPS cold-start year-2000 default
 
 public :
     MicroNMEALocationProvider(Stream& ser, mesh::RTCClock* clock = NULL, int pin_reset = GPS_RESET, int pin_en = GPS_EN,RefCountedDigitalPin* peripher_power=NULL) :
@@ -153,7 +154,10 @@ public :
             }
             if (_time_sync_needed && time_valid > 2) {
                 if (_clock != NULL) {
-                    _clock->setCurrentTime(getTimestamp());
+                    uint32_t ts = getTimestamp();
+                    if (ts >= MIN_VALID_TIME && ts >= _clock->getCurrentTime()) {
+                        _clock->setCurrentTime(ts);
+                    }
                     _time_sync_needed = false;
                     _last_time_sync = millis();
                 }
