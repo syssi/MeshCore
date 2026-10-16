@@ -70,7 +70,11 @@ public:
   void enterDeepSleep(uint32_t secs);
 
   uint32_t getIRQGpio() override {
+  #ifdef P_LORA_DIO_1
     return P_LORA_DIO_1; // default for SX1262
+  #else
+    return mesh::MainBoard::getIRQGpio(); // not supported (no LoRa radio on this board)
+  #endif
   }
 
   void sleep(uint32_t secs) override {
@@ -80,8 +84,10 @@ public:
       return;
     }
 
+  #ifdef P_LORA_DIO_1
     // Set GPIO wakeup
-    gpio_num_t wakeupPin = (gpio_num_t)getIRQGpio();    
+    gpio_num_t wakeupPin = (gpio_num_t)getIRQGpio();
+  #endif
 
     // Configure timer wakeup
     if (secs > 0) {
@@ -91,6 +97,7 @@ public:
     // Disable CPU interrupt servicing
     portENTER_CRITICAL(&sleepMux);
 
+  #ifdef P_LORA_DIO_1
     // Skip sleep if there is a LoRa packet
     if (gpio_get_level(wakeupPin) == HIGH) {
       portEXIT_CRITICAL(&sleepMux);
@@ -101,13 +108,16 @@ public:
     // Configure GPIO wakeup
     esp_sleep_enable_gpio_wakeup();
     gpio_wakeup_enable((gpio_num_t)wakeupPin, GPIO_INTR_HIGH_LEVEL); // Wake up when receiving a LoRa packet
+  #endif
 
     // MCU enters light sleep
     esp_light_sleep_start();
 
+  #ifdef P_LORA_DIO_1
     // Avoid ISR flood during wakeup due to HIGH LEVEL interrupt
     gpio_wakeup_disable(wakeupPin);
     gpio_set_intr_type(wakeupPin, GPIO_INTR_POSEDGE);
+  #endif
 
     // Enable CPU interrupt servicing
     portEXIT_CRITICAL(&sleepMux);
