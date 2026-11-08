@@ -138,6 +138,13 @@ void CommonCLI::loadPrefsInt(FILESYSTEM* fs, const char* filename) {  // Legacy 
     _prefs->cad_enabled = constrain(_prefs->cad_enabled, 0, 1); // boolean
     _prefs->max_resend_attempts = constrain(_prefs->max_resend_attempts, 0, 3);
 
+    // duty-cycle region gating. dc_gate_threshold is a true TX duty cycle
+    // percent (share of wall-clock time spent transmitting; see
+    // Dispatcher::getTxDutyCyclePercent), NOT the old "% of airtime budget".
+    _prefs->dc_gate_enabled = constrain(_prefs->dc_gate_enabled, 0, 1);       // boolean
+    _prefs->dc_gate_threshold = constrain(_prefs->dc_gate_threshold, 1, 100); // true TX duty cycle %
+    _prefs->dc_gate_hysteresis = constrain(_prefs->dc_gate_hysteresis, 0, 50);// percent margin
+
     file.close();
   }
 }
@@ -508,6 +515,36 @@ void CommonCLI::handleSetCmd(uint32_t sender_timestamp, char* command, char* rep
     _prefs->allow_read_only = memcmp(&config[16], "on", 2) == 0;
     savePrefs();
     strcpy(reply, "OK");
+  } else if (memcmp(config, "dc.gate.thresh ", 15) == 0) {
+    int t = atoi(&config[15]);
+    if (t < 1 || t > 100) {
+      strcpy(reply, "ERROR: dc.gate.thresh must be 1-100");
+    } else {
+      _prefs->dc_gate_threshold = t;
+      savePrefs();
+      strcpy(reply, "OK");
+    }
+  } else if (memcmp(config, "dc.gate.hyst ", 13) == 0) {
+    int h = atoi(&config[13]);
+    if (h < 0 || h > 50) {
+      strcpy(reply, "ERROR: dc.gate.hyst must be 0-50");
+    } else {
+      _prefs->dc_gate_hysteresis = h;
+      savePrefs();
+      strcpy(reply, "OK");
+    }
+  } else if (memcmp(config, "dc.gate ", 8) == 0) {
+    // accept on/off as well as 1/0; anything else is rejected instead of silently disabling
+    const char* v = &config[8];
+    bool on = strcmp(v, "on") == 0 || strcmp(v, "1") == 0;
+    bool off = strcmp(v, "off") == 0 || strcmp(v, "0") == 0;
+    if (on || off) {
+      _prefs->dc_gate_enabled = on ? 1 : 0;
+      savePrefs();
+      strcpy(reply, "OK");
+    } else {
+      strcpy(reply, "ERROR: dc.gate must be on/off (or 1/0)");
+    }
   } else if (memcmp(config, "flood.advert.interval ", 22) == 0) {
     int hours = _atoi(&config[22]);
     if ((hours > 0 && hours < 3) || (hours > 168)) {
@@ -723,6 +760,12 @@ void CommonCLI::handleGetCmd(uint32_t sender_timestamp, char* command, char* rep
     _callbacks->formatResendRatioReply(reply + strlen(reply));
   } else if (memcmp(config, "allow.read.only", 15) == 0) {
     sprintf(reply, "> %s", _prefs->allow_read_only ? "on" : "off");
+  } else if (memcmp(config, "dc.gate.thresh", 14) == 0) {
+    sprintf(reply, "> %d", (uint32_t) _prefs->dc_gate_threshold);
+  } else if (memcmp(config, "dc.gate.hyst", 12) == 0) {
+    sprintf(reply, "> %d", (uint32_t) _prefs->dc_gate_hysteresis);
+  } else if (memcmp(config, "dc.gate", 7) == 0) {
+    sprintf(reply, "> %s", _prefs->dc_gate_enabled ? "on" : "off");
   } else if (memcmp(config, "flood.advert.interval", 21) == 0) {
     sprintf(reply, "> %d", ((uint32_t) _prefs->flood_advert_interval));
   } else if (memcmp(config, "advert.interval", 15) == 0) {

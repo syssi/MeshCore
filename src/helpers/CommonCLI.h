@@ -72,6 +72,9 @@ public:
   uint8_t loop_detect = 0;
   uint8_t max_resend_attempts; // 0 = disabled, 1-3, default 2 (repeated sending)
   uint8_t cad_enabled = 0;      // hardware Channel Activity Detection before TX (boolean)
+  uint8_t dc_gate_enabled = 0;    // duty-cycle region gating: 0 = off (opt-in)
+  uint8_t dc_gate_threshold = 35; // true TX duty % (60 s window) above which outer regions start being gated
+  uint8_t dc_gate_hysteresis = 10;// recover margin in %: re-enable regions below (threshold - hysteresis)
   uint8_t extra_sf[4];
 
 private:
@@ -187,6 +190,13 @@ private:
       def("f_max_uns", _parent->flood_max_unscoped);
       def("f_max_adv", _parent->flood_max_advert);
       def("loop", _parent->loop_detect);
+      def("dc_gate", _parent->dc_gate_enabled);        // duty-cycle region gating: 0 = off (opt-in)
+      // "dc_gate_duty", not the old "dc_gate_thr": that key held a % of the
+      // duty-cycle budget. Values stored under it are left behind on purpose,
+      // so upgraded nodes start from the true-duty default instead of a
+      // budget % that would rarely trip.
+      def("dc_gate_duty", _parent->dc_gate_threshold); // true TX duty % to start gating outer regions
+      def("dc_gate_hyst", _parent->dc_gate_hysteresis);// recover margin %: re-enable below (thr - hyst)
     }
   public:
     RepeatPrefs(NodePrefs* parent) : _parent(parent) { }

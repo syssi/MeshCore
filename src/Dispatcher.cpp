@@ -31,6 +31,7 @@ void Dispatcher::begin() {
   float duty_cycle = 1.0f / (1.0f + getAirtimeBudgetFactor());
   tx_budget_ms = (unsigned long)(duty_cycle_window_ms * duty_cycle);
   last_budget_update = _ms->getMillis();
+  _tx_duty.reset(_ms->getMillis());
 
   _radio->begin();
   prev_isrecv_mode = _radio->isInRecvMode();
@@ -55,6 +56,15 @@ void Dispatcher::updateTxBudget() {
     }
     last_budget_update = now;
   }
+}
+
+uint8_t Dispatcher::getTxDutyCyclePercent() {
+  // True TX duty cycle: fraction of wall-clock time spent transmitting over a
+  // rolling ~60 s window (see TxDutyWindow). This is intentionally NOT derived
+  // from tx_budget_ms: that bucket is the airtime/compliance limiter (it paces
+  // TX and is left untouched), and its "budget headroom" reads ~0 for any
+  // normal repeater. Passing "now" lets an idle node's duty decay to 0.
+  return _tx_duty.percent(_ms->getMillis());
 }
 
 int Dispatcher::calcRxDelay(float score, uint32_t air_time) const {
@@ -97,6 +107,7 @@ void Dispatcher::loop() {
     if (_radio->isSendComplete()) {
       long t = _ms->getMillis() - outbound_start;
       total_air_time += t;
+      if (t > 0) _tx_duty.addAirtime(_ms->getMillis(), (unsigned long)t);   // feed the true-duty-cycle window
       //Serial.print("  airtime="); Serial.println(t);
 
       updateTxBudget();
