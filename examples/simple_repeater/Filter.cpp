@@ -1,4 +1,5 @@
 #include "Filter.h"
+#include "ChannelMAC.h"
 
 // These are copied into the reply buffer verbatim. The help line is already
 // close to the limit, so guard it at compile time rather than let a future
@@ -100,7 +101,8 @@ bool Filter::allowPacketForward(const mesh::Packet* packet) {
     for (int i=0; i<FILTER_CHANNEL_COUNT; i++) {
       ChannelDetails &ch = _prefs.filter_channels[i];
       if (ch.name[0] == '\0') continue;
-      if (channel_hash == ch.channel.hash[0]) {
+      // mups: the hash byte is shared by many channels, the MAC is not
+      if (channel_hash == ch.channel.hash[0] && ChannelMAC::matches(ch.channel.secret, packet->payload, packet->payload_len)) {
         FilterStat::recordChannel(_cnt, i);
         return drop(packet);
       }
@@ -116,8 +118,9 @@ bool Filter::allowPacketForward(const mesh::Packet* packet) {
       int len = mesh::Utils::MACThenDecrypt(secret != nullptr ? secret : PUBLIC_CHANNEL_SECRET, data,
                                             &packet->payload[PATH_HASH_SIZE], packet->payload_len - PATH_HASH_SIZE);
 
-      // malformed
-      if (want_malformed) {
+      // malformed; len == 0 means the MAC failed: another channel on the
+      // Public hash byte (mups), not a malformed Public message -- let it pass
+      if (want_malformed && len > 0) {
         uint8_t reason;
         if (!validMessageContent(data, len, &reason)) {
           FilterStat::recordMalformed(_cnt, reason);
@@ -793,6 +796,11 @@ bool Filter::load(FILESYSTEM* fs) {
     TextRule& tr = _prefs.text_rules[i];
     tr.text[FILTER_TEXT_LEN - 1] = '\0';
     if (tr.prob == 0 || tr.prob > 100) tr.prob = 100;
+  }
+  for (int i = 0; i < FILTER_CHANNEL_COUNT; i++) {   // mups: the key is now used for matching
+    ChannelDetails& ch = _prefs.filter_channels[i];
+    ch.name[sizeof(ch.name) - 1] = '\0';
+    if (ch.name[0] != '\0') getChannelHash(ch.name, &ch.channel);
   }
   for (int i = 0; i < FILTER_WATCH_COUNT; i++) {
     ChannelDetails& ch = _prefs.watch_channels[i];
