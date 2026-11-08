@@ -297,7 +297,15 @@ void Dispatcher::processRecvPacket(Packet* pkt) {
 }
 
 void Dispatcher::checkSend() {
-  if (_mgr->getOutboundCount(_ms->getMillis()) == 0) return;
+  if (_mgr->getOutboundCount(_ms->getMillis()) == 0) {
+    // Nothing is due, so no packet is waiting for a free channel any more. A busy episode may
+    // still be open here: PR #2670 removes a queued resend from the queue when the downstream
+    // forward is overheard (Mesh.cpp), possibly while that very resend was waiting for the channel.
+    // Without this reset cad_busy_start stays at the old timestamp, and the next packet that finds
+    // the channel busy is sent at once because the 4 s limit looks long exceeded.
+    cad_busy_start = 0;
+    return;
+  }
   
   updateTxBudget();
   
